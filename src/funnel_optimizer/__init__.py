@@ -1,1 +1,1 @@
-"""Funnel Optimizer — AI-powered call center funnel optimization."""
+"""Funnel Optimizer — Campaign pipeline for home renovation call center."""
