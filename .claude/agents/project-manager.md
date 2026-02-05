@@ -53,10 +53,13 @@ When delegating work, use these agents for their specific domains:
 
 | Agent | Use For | Model |
 |-------|---------|-------|
+| `product-manager` | Product goals, feature definitions, market research, strategic decisions | opus |
 | `feature-manager` | Implementing features, hotfixes, refactors with full Git workflow | sonnet |
 | `pipeline-dev` | Pipeline code development, DB schema, business logic | sonnet |
 | `meta-integration` | Meta Ads API integration, campaign creation, lead retrieval | sonnet |
 | `report-generator` | Pipeline performance reports from DB | sonnet |
+
+**Note:** For product decisions (what to build, success metrics, prioritization), consult `product-manager` first. For execution (how to build), use `feature-manager` and domain specialists.
 
 ## Git Workflow
 

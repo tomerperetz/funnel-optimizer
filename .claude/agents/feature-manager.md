@@ -166,6 +166,9 @@ You must execute the following phases in order. Do NOT skip phases. If a phase f
 - Config via pydantic-settings with `FO_` prefix in `.env`
 
 ### Available Agents for Delegation
+- `product-manager` — Product goals, feature definitions, success metrics (consult before building)
 - `pipeline-dev` — Pipeline code development, DB schema, business logic
 - `meta-integration` — Meta Ads API integration, campaign creation, lead retrieval
 - `report-generator` — Pipeline performance reports from DB
+
+**Note:** If requirements are unclear, consult `product-manager` before implementation.
