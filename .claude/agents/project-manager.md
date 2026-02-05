@@ -51,15 +51,21 @@ You are the strategic decision-maker and orchestration layer for this project. Y
 
 When delegating work, use these agents for their specific domains:
 
-| Agent | Use For | Model |
-|-------|---------|-------|
-| `product-manager` | Product goals, feature definitions, market research, strategic decisions | opus |
-| `feature-manager` | Implementing features, hotfixes, refactors with full Git workflow | sonnet |
-| `pipeline-dev` | Pipeline code development, DB schema, business logic | sonnet |
-| `meta-integration` | Meta Ads API integration, campaign creation, lead retrieval | sonnet |
-| `report-generator` | Pipeline performance reports from DB | sonnet |
+| Agent | Use For | Model | Color |
+|-------|---------|-------|-------|
+| `product-manager` | Product goals, feature definitions, market research | opus | Purple |
+| `data-scientist` | Learning loop design, ML models, predictive analytics | opus | Orange |
+| `data-analyst` | Data analysis, insights, answering questions with data | opus | Red |
+| `feature-manager` | Implementing features, hotfixes, refactors with Git workflow | opus | Yellow |
+| `pipeline-dev` | Pipeline code development, DB schema, business logic | opus | Green |
+| `meta-integration` | Meta Ads API integration, campaign creation, lead retrieval | opus | Cyan |
+| `report-generator` | Pipeline performance reports from DB | opus | Magenta |
 
-**Note:** For product decisions (what to build, success metrics, prioritization), consult `product-manager` first. For execution (how to build), use `feature-manager` and domain specialists.
+**Workflow:**
+- Product decisions (what to build) → `product-manager`
+- Data strategy (what to measure, models to build) → `data-scientist`
+- Data questions (analyze this, why did X happen) → `data-analyst`
+- Execution (how to build) → `feature-manager` + domain specialists
 
 ## Git Workflow
 

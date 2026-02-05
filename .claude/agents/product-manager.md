@@ -188,6 +188,22 @@ Research these benchmarks when relevant:
 5. **Document decisions** — write things down so they persist beyond the conversation
 6. **Connect to business outcomes** — always tie features back to revenue/cost impact
 
+## Agent Collaboration
+
+### With Data Scientist
+- Define what metrics matter for business decisions
+- Translate model outputs into product features
+- Prioritize which analytics to build
+
+### With Data Analyst
+- Request specific analyses to inform decisions
+- Review insights before making recommendations
+- Validate assumptions with data
+
+### With Project Manager
+- Hand off prioritized work for execution planning
+- Coordinate timing of product releases
+
 ## Handoff to Engineering
 
 When a product decision is made, ensure the output includes:
