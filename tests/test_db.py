@@ -4,11 +4,12 @@ from funnel_optimizer.db import DDL
 
 
 def test_init_creates_all_tables(db):
-    """init_db should create all 5 tables."""
+    """init_db should create all 6 tables."""
     tables = db.execute(
         "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
     ).fetchall()
     names = [r["name"] for r in tables]
+    assert "customers" in names
     assert "briefs" in names
     assert "content" in names
     assert "campaigns" in names
@@ -22,10 +23,10 @@ def test_foreign_keys_enforced(db):
     assert row[0] == 1
 
 
-def test_leads_unique_constraint(db):
+def test_leads_unique_constraint(db, sample_customer):
     """meta_lead_id should be unique — INSERT OR IGNORE should skip duplicates."""
     # Need a campaign first (FK)
-    db.execute("INSERT INTO briefs (name, project_type, geo, budget_cents) VALUES ('b', 't', 'g', 0)")
+    db.execute("INSERT INTO briefs (customer_id, name, project_type, geo, budget_cents) VALUES (1, 'b', 't', 'g', 0)")
     db.execute("INSERT INTO content (brief_id, headline, primary_text) VALUES (1, 'h', 'p')")
     db.execute("INSERT INTO campaigns (content_id, status) VALUES (1, 'active')")
     db.commit()
@@ -49,9 +50,9 @@ def test_leads_unique_constraint(db):
     assert name == "Alice"
 
 
-def test_metrics_upsert(db):
+def test_metrics_upsert(db, sample_customer):
     """ON CONFLICT(campaign_id, date) should update existing row."""
-    db.execute("INSERT INTO briefs (name, project_type, geo, budget_cents) VALUES ('b', 't', 'g', 0)")
+    db.execute("INSERT INTO briefs (customer_id, name, project_type, geo, budget_cents) VALUES (1, 'b', 't', 'g', 0)")
     db.execute("INSERT INTO content (brief_id, headline, primary_text) VALUES (1, 'h', 'p')")
     db.execute("INSERT INTO campaigns (content_id, status) VALUES (1, 'active')")
     db.commit()

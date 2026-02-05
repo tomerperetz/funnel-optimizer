@@ -5,8 +5,19 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class Customer(BaseModel):
+    id: int | None = None
+    name: str
+    meta_page_id: str
+    meta_page_name: str | None = None
+    status: str = "active"  # active | inactive
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
 class Brief(BaseModel):
     id: int | None = None
+    customer_id: int
     name: str
     project_type: str
     geo: str

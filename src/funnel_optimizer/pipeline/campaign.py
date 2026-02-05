@@ -10,7 +10,7 @@ from rich.table import Table
 from funnel_optimizer.clients.meta_ads import MetaAdsClient
 from funnel_optimizer.config import get_settings
 from funnel_optimizer.db import get_connection
-from funnel_optimizer.pipeline.content import get_brief, get_content
+from funnel_optimizer.pipeline.content import get_brief, get_content, get_customer
 
 logger = logging.getLogger(__name__)
 
@@ -46,15 +46,25 @@ def create_campaign_from_content(
             conn.close()
         return
 
+    customer = get_customer(brief.customer_id, conn)
+    if not customer:
+        console.print(f"[red]Customer #{brief.customer_id} not found[/red]")
+        if own_conn:
+            conn.close()
+        return
+
     settings = get_settings()
     client = MetaAdsClient(settings)
-    campaign_name = f"{brief.project_type} - {brief.geo} - {brief.name}"
+    import time
+    timestamp = int(time.time())
+    campaign_name = f"{customer.name} - {brief.project_type} - {brief.geo} - {brief.name} - {timestamp}"
+    page_id = customer.meta_page_id
 
     try:
         meta_campaign = client.create_campaign(name=campaign_name)
         console.print(f"  Meta campaign: {meta_campaign['id']}")
 
-        form = client.create_lead_form(name=f"{campaign_name} - Lead Form")
+        form = client.create_lead_form(name=f"{campaign_name} - Lead Form", page_id=page_id)
         console.print(f"  Lead form: {form['id']}")
 
         targeting = json.loads(content.targeting_json)
@@ -63,6 +73,7 @@ def create_campaign_from_content(
             name=f"{campaign_name} - AdSet",
             daily_budget_cents=brief.budget_cents,
             targeting=targeting,
+            page_id=page_id,
         )
         console.print(f"  Ad set: {adset['id']}")
 
@@ -78,6 +89,7 @@ def create_campaign_from_content(
 
         creative = client.create_creative(
             name=f"{campaign_name} - Creative",
+            page_id=page_id,
             headline=content.headline,
             primary_text=content.primary_text,
             cta=content.cta,

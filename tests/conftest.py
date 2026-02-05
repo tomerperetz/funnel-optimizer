@@ -22,6 +22,17 @@ def db(tmp_path):
 
 
 @pytest.fixture
+def sample_customer(db):
+    """Create a sample customer for tests."""
+    db.execute(
+        "INSERT INTO customers (name, meta_page_id, meta_page_name, status) VALUES (?, ?, ?, ?)",
+        ("Test Client", "123456789", "Test Page", "active"),
+    )
+    db.commit()
+    return db.execute("SELECT * FROM customers WHERE id = 1").fetchone()
+
+
+@pytest.fixture
 def mock_meta_client():
     """Mocked MetaAdsClient that returns realistic fake IDs."""
     client = MagicMock()

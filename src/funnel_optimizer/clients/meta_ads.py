@@ -63,12 +63,14 @@ class MetaAdsClient:
     # --- Campaign ---
 
     def create_campaign(self, name: str, objective: str = "OUTCOME_LEADS") -> dict:
-        """Create a campaign in PAUSED status. Returns dict with id."""
+        """Create a campaign in PAUSED status with ad set level budgets. Returns dict with id."""
         params = {
             "name": name,
             "objective": objective,
             "status": "PAUSED",
             "special_ad_categories": [],
+            "is_using_l3_scheduling": False,
+            "smart_promotion_type": "GUIDED_CREATION",
         }
         result = self.account.create_campaign(params=params)
         logger.info("Created campaign %s", result["id"])
@@ -85,15 +87,24 @@ class MetaAdsClient:
         page_id: str | None = None,
     ) -> dict:
         """Create an ad set. Returns dict with id."""
+        # Ensure targeting has at least geo_locations (required by Meta)
+        if not targeting or not targeting.get("geo_locations"):
+            targeting = {
+                "geo_locations": {"countries": ["IL"]},  # Default to Israel for testing
+                "age_min": 18,
+                "age_max": 65,
+            }
         params = {
             "campaign_id": campaign_id,
             "name": name,
             "billing_event": "IMPRESSIONS",
             "optimization_goal": "LEAD_GENERATION",
+            "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
             "daily_budget": daily_budget_cents,
             "targeting": targeting,
             "status": "PAUSED",
             "promoted_object": {"page_id": page_id or self.settings.meta_page_id},
+            "destination_type": "ON_AD",
         }
         result = self.account.create_ad_set(params=params)
         logger.info("Created adset %s", result["id"])
@@ -124,7 +135,9 @@ class MetaAdsClient:
             "follow_up_action_url": privacy_policy_url or self.settings.privacy_policy_url,
         }
         pid = page_id or self.settings.meta_page_id
-        result = LeadgenForm(parent_id=pid).api_create(params=params)
+        from facebook_business.adobjects.page import Page
+        page = Page(pid)
+        result = page.create_lead_gen_form(params=params)
         logger.info("Created lead form %s", result["id"])
         return {"id": result["id"]}
 
@@ -143,14 +156,16 @@ class MetaAdsClient:
     ) -> dict:
         """Create an ad creative for lead gen. Returns dict with id."""
         pid = page_id or self.settings.meta_page_id
+        # Lead gen ads require an external link (not facebook.com)
+        external_link = link or self.settings.privacy_policy_url
         link_data = {
             "message": primary_text,
             "name": headline,
             "call_to_action": {
                 "type": cta,
-                "value": {"lead_gen_form_id": form_id} if form_id else {"link": link},
+                "value": {"lead_gen_form_id": form_id} if form_id else {"link": external_link},
             },
-            "link": link or f"https://facebook.com/{pid}",
+            "link": external_link,
         }
         if image_hash:
             link_data["image_hash"] = image_hash

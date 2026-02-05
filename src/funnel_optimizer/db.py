@@ -6,8 +6,19 @@ from pathlib import Path
 from funnel_optimizer.config import get_settings
 
 DDL = """
+CREATE TABLE IF NOT EXISTS customers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    meta_page_id TEXT NOT NULL,
+    meta_page_name TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS briefs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL REFERENCES customers(id),
     name TEXT NOT NULL,
     project_type TEXT NOT NULL,
     geo TEXT NOT NULL,
@@ -91,7 +102,7 @@ def init_db(db_path: Path | None = None) -> None:
 def table_counts(db_path: Path | None = None) -> dict[str, int]:
     """Return row count for each table."""
     conn = get_connection(db_path)
-    tables = ["briefs", "content", "campaigns", "leads", "campaign_metrics"]
+    tables = ["customers", "briefs", "content", "campaigns", "leads", "campaign_metrics"]
     counts = {}
     for t in tables:
         row = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()  # noqa: S608

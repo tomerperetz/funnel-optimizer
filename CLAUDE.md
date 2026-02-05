@@ -11,9 +11,10 @@ Currently serving one call center with multiple end-client businesses. Architect
 ## Business Model
 
 - **Tenant** = call center (manages the platform)
-- **Customer** = end-client business (plumber, reno contractor, etc.) that the call center runs campaigns for. Each customer has their own Meta ad account and campaign briefs.
+- **Customer** = end-client business (plumber, reno contractor, etc.) that the call center runs campaigns for. Each customer has their own Facebook Page (created/managed by the call center) and campaign briefs.
 - **Operator** = call center employee using the dashboard
 - **Ad platform** = Meta only for now. Code shouldn't fight adding Google Ads later, but no abstraction layer needed yet.
+- **Page ownership:** Call center creates and owns Facebook Pages for each client. Ads show "by [Client Name]" branding. Single ad account (call center's) pays for all ads.
 
 ## Deployment
 
@@ -25,10 +26,12 @@ Currently serving one call center with multiple end-client businesses. Architect
 ## Architecture
 
 ```
-[Briefs] → [Content] → [Meta Campaign] → [Lead Collection] → [Leads]
-                              ↓                   ↓
-                        [Campaigns]          [Metrics]
+[Customers] → [Briefs] → [Content] → [Meta Campaign] → [Lead Collection] → [Leads]
+                                            ↓                   ↓
+                                      [Campaigns]          [Metrics]
 ```
+
+Each customer has their own Facebook Page. Campaigns are created on the customer's page, so ads display the client's branding.
 
 **Core principle:** Database is the integration layer. Pipeline blocks read/write DB, never call each other. This makes blocks independently orchestrable — by humans today, by AI agents tomorrow.
 
@@ -54,11 +57,11 @@ Currently serving one call center with multiple end-client businesses. Architect
 src/funnel_optimizer/
 ├── config.py              # pydantic-settings, FO_ prefix, loads .env
 ├── db.py                  # SQLite DDL, init_db(), get_connection()
-├── models.py              # Brief, Content, Campaign, Lead, CampaignMetric
+├── models.py              # Customer, Brief, Content, Campaign, Lead, CampaignMetric
 ├── clients/
 │   └── meta_ads.py        # MetaAdsClient — thin Meta API wrapper
 ├── pipeline/
-│   ├── content.py         # CRUD for briefs + content
+│   ├── content.py         # CRUD for customers, briefs, content
 │   ├── campaign.py        # Content → Meta campaign (always PAUSED)
 │   └── leads.py           # Lead + metrics collection (idempotent)
 └── cli.py                 # Typer CLI (dev/ops tool)
@@ -69,7 +72,10 @@ src/funnel_optimizer/
 ```bash
 funnel db init                       # Create tables
 funnel db status                     # Row counts
-funnel content add-brief ...         # Add brief
+funnel db check-meta                 # Verify Meta API credentials
+funnel customer add ...              # Add a customer (client)
+funnel customer list                 # List customers
+funnel content add-brief ...         # Add brief for a customer
 funnel content add ...               # Add content for brief
 funnel content load <file.json>      # Bulk load from JSON
 funnel content approve <id>          # Mark content ready
@@ -85,7 +91,13 @@ funnel status                        # Full pipeline overview
 
 ## Database
 
-5 tables: `briefs`, `content`, `campaigns`, `leads`, `campaign_metrics`. See `.claude/skills/database.md` for full schema.
+6 tables: `customers`, `briefs`, `content`, `campaigns`, `leads`, `campaign_metrics`. See `.claude/skills/database.md` for full schema.
+
+**Entity relationships:**
+```
+customers (1) ──< briefs (1) ──< content (1) ──< campaigns (1) ──< leads
+                                                    └──< campaign_metrics
+```
 
 **Conventions:**
 - Money in cents (budget_cents, spend_cents, cpl_cents)
@@ -132,13 +144,14 @@ Agents operate autonomously within a rule engine:
 Phase 1 goal is to **prove the full loop works end-to-end with real integrations**. Every component starts simple — the point is to connect the pipeline from brief to collected lead with real Meta API calls, not to build polished components. Once the full loop runs, we iterate by replacing simple components with smarter versions (AI content, auto-targeting, etc.).
 
 **What "done" looks like for Phase 1:**
-1. Brief created in DB
-2. Content written (manually) and approved
-3. Real Meta campaign created (PAUSED) via API
-4. Campaign activated, real ad runs
-5. Real leads collected from Meta into DB
-6. Real daily metrics collected into DB
-7. `funnel status` shows the full picture
+1. Customer created with their Facebook Page ID
+2. Brief created for customer
+3. Content written (manually) and approved
+4. Real Meta campaign created (PAUSED) on customer's page via API
+5. Campaign activated, real ad runs with client branding
+6. Real leads collected from Meta into DB
+7. Real daily metrics collected into DB
+8. `funnel status` shows the full picture
 
 **Then iterate:** swap content creation for AI-generated. Swap static targeting for data-driven. Add GHL sync. Each swap is independent because blocks only share DB.
 

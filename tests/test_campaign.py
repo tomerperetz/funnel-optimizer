@@ -8,16 +8,16 @@ from funnel_optimizer.models import Brief, Content
 from funnel_optimizer.pipeline.content import add_brief, add_content, approve_content
 
 
-def _setup_approved_content(db):
+def _setup_approved_content(db, sample_customer):
     """Create a brief with approved content in the DB."""
-    add_brief(Brief(name="Test", project_type="Bathroom", geo="DFW", budget_cents=5000), db)
+    add_brief(Brief(customer_id=1, name="Test", project_type="Bathroom", geo="DFW", budget_cents=5000), db)
     add_content(Content(brief_id=1, headline="Transform Your Bath", primary_text="Get a free quote"), db)
     approve_content(1, db)
 
 
-def test_create_campaign_from_content(db, mock_meta_client):
+def test_create_campaign_from_content(db, mock_meta_client, sample_customer):
     """Creating a campaign should create all Meta objects and save to DB."""
-    _setup_approved_content(db)
+    _setup_approved_content(db, sample_customer)
     console = Console(quiet=True)
 
     with patch("funnel_optimizer.pipeline.campaign.MetaAdsClient", return_value=mock_meta_client), \
@@ -41,9 +41,9 @@ def test_create_campaign_from_content(db, mock_meta_client):
     mock_meta_client.create_ad.assert_called_once()
 
 
-def test_create_campaign_unapproved_content(db):
+def test_create_campaign_unapproved_content(db, sample_customer):
     """Should reject unapproved content."""
-    add_brief(Brief(name="Test", project_type="Bath", geo="DFW", budget_cents=0), db)
+    add_brief(Brief(customer_id=1, name="Test", project_type="Bath", geo="DFW", budget_cents=0), db)
     add_content(Content(brief_id=1, headline="H", primary_text="P"), db)
     console = Console(quiet=True)
 
@@ -54,9 +54,9 @@ def test_create_campaign_unapproved_content(db):
     assert count == 0
 
 
-def test_create_campaign_meta_error(db, mock_meta_client):
+def test_create_campaign_meta_error(db, mock_meta_client, sample_customer):
     """Meta API error should save error status in DB."""
-    _setup_approved_content(db)
+    _setup_approved_content(db, sample_customer)
     mock_meta_client.create_campaign.side_effect = Exception("API Error: #200")
     console = Console(quiet=True)
 

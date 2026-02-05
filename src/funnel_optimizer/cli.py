@@ -8,23 +8,28 @@ from rich.console import Console
 from rich.table import Table
 
 from funnel_optimizer.db import init_db, table_counts, get_connection
-from funnel_optimizer.models import Brief, Content
+from funnel_optimizer.models import Brief, Content, Customer
 from funnel_optimizer.pipeline.content import (
     add_brief,
     add_content,
+    add_customer,
     approve_content,
+    get_customer,
     list_briefs,
     list_content,
+    list_customers,
     load_from_json,
 )
 
 app = typer.Typer(help="Funnel Optimizer — campaign pipeline CLI")
 db_app = typer.Typer(help="Database management")
+customer_app = typer.Typer(help="Customer management")
 content_app = typer.Typer(help="Brief and content management")
 campaign_app = typer.Typer(help="Meta campaign management")
 leads_app = typer.Typer(help="Lead collection")
 
 app.add_typer(db_app, name="db")
+app.add_typer(customer_app, name="customer")
 app.add_typer(content_app, name="content")
 app.add_typer(campaign_app, name="campaign")
 app.add_typer(leads_app, name="leads")
@@ -74,20 +79,65 @@ def db_status():
     console.print(table)
 
 
+# --- Customers ---
+
+
+@customer_app.command("add")
+def customer_add(
+    name: str = typer.Option(..., help="Customer/client name"),
+    page_id: str = typer.Option(..., help="Facebook Page ID"),
+    page_name: Optional[str] = typer.Option(None, help="Facebook Page name (optional)"),
+):
+    """Add a new customer (client whose ads you manage)."""
+    customer = Customer(name=name, meta_page_id=page_id, meta_page_name=page_name)
+    customer_id = add_customer(customer)
+    console.print(f"[green]Customer #{customer_id} created:[/green] {name}")
+
+
+@customer_app.command("list")
+def customer_list_cmd():
+    """List all customers."""
+    customers = list_customers()
+    if not customers:
+        console.print("[dim]No customers yet.[/dim]")
+        return
+    table = Table(title="Customers")
+    table.add_column("ID", style="cyan", width=4)
+    table.add_column("Name")
+    table.add_column("Page ID")
+    table.add_column("Page Name")
+    table.add_column("Status")
+    for c in customers:
+        status_style = "green" if c.status == "active" else "dim"
+        table.add_row(
+            str(c.id),
+            c.name,
+            c.meta_page_id,
+            c.meta_page_name or "-",
+            f"[{status_style}]{c.status}[/{status_style}]",
+        )
+    console.print(table)
+
+
 # --- Content ---
 
 
 @content_app.command("add-brief")
 def content_add_brief(
+    customer_id: int = typer.Option(..., help="Customer ID this brief belongs to"),
     name: str = typer.Option(..., help="Brief name"),
     project_type: str = typer.Option(..., help="e.g. Bathroom, Kitchen"),
     geo: str = typer.Option(..., help="e.g. DFW, Houston"),
     budget_cents: int = typer.Option(0, help="Daily budget in cents"),
 ):
-    """Add a campaign brief."""
-    brief = Brief(name=name, project_type=project_type, geo=geo, budget_cents=budget_cents)
+    """Add a campaign brief for a customer."""
+    customer = get_customer(customer_id)
+    if not customer:
+        console.print(f"[red]Customer #{customer_id} not found[/red]")
+        raise typer.Exit(1)
+    brief = Brief(customer_id=customer_id, name=name, project_type=project_type, geo=geo, budget_cents=budget_cents)
     brief_id = add_brief(brief)
-    console.print(f"[green]Brief #{brief_id} created:[/green] {name}")
+    console.print(f"[green]Brief #{brief_id} created:[/green] {name} (for {customer.name})")
 
 
 @content_app.command("add")
@@ -132,6 +182,7 @@ def content_approve(content_id: int = typer.Argument(..., help="Content ID to ap
 @content_app.command("list")
 def content_list_cmd(
     brief_id: Optional[int] = typer.Option(None, help="Filter by brief ID"),
+    customer_id: Optional[int] = typer.Option(None, help="Filter by customer ID"),
 ):
     """List content items."""
     briefs = list_briefs()
@@ -142,7 +193,11 @@ def content_list_cmd(
     for brief in briefs:
         if brief_id is not None and brief.id != brief_id:
             continue
-        console.print(f"\n[bold]Brief #{brief.id}:[/bold] {brief.name} ({brief.project_type}, {brief.geo}) [{brief.status}]")
+        if customer_id is not None and brief.customer_id != customer_id:
+            continue
+        customer = get_customer(brief.customer_id)
+        customer_name = customer.name if customer else "Unknown"
+        console.print(f"\n[bold]Brief #{brief.id}:[/bold] {brief.name} ({brief.project_type}, {brief.geo}) [{brief.status}] — Customer: {customer_name}")
         items = list_content(brief.id)
         if not items:
             console.print("  [dim]No content[/dim]")

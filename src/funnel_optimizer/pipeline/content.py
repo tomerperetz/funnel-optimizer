@@ -1,11 +1,54 @@
-"""CRUD operations for briefs and content."""
+"""CRUD operations for customers, briefs, and content."""
 
 import json
 import sqlite3
 from pathlib import Path
 
 from funnel_optimizer.db import get_connection
-from funnel_optimizer.models import Brief, Content
+from funnel_optimizer.models import Brief, Content, Customer
+
+
+# --- Customers ---
+
+
+def add_customer(customer: Customer, conn: sqlite3.Connection | None = None) -> int:
+    """Insert a customer and return its ID."""
+    close = conn is None
+    if conn is None:
+        conn = get_connection()
+    cur = conn.execute(
+        "INSERT INTO customers (name, meta_page_id, meta_page_name, status) VALUES (?, ?, ?, ?)",
+        (customer.name, customer.meta_page_id, customer.meta_page_name, customer.status),
+    )
+    conn.commit()
+    row_id = cur.lastrowid
+    if close:
+        conn.close()
+    return row_id
+
+
+def list_customers(conn: sqlite3.Connection | None = None) -> list[Customer]:
+    """Return all customers."""
+    close = conn is None
+    if conn is None:
+        conn = get_connection()
+    rows = conn.execute("SELECT * FROM customers ORDER BY id").fetchall()
+    result = [Customer(**dict(r)) for r in rows]
+    if close:
+        conn.close()
+    return result
+
+
+def get_customer(customer_id: int, conn: sqlite3.Connection | None = None) -> Customer | None:
+    """Return a customer by ID."""
+    close = conn is None
+    if conn is None:
+        conn = get_connection()
+    row = conn.execute("SELECT * FROM customers WHERE id = ?", (customer_id,)).fetchone()
+    result = Customer(**dict(row)) if row else None
+    if close:
+        conn.close()
+    return result
 
 
 # --- Briefs ---
@@ -17,8 +60,8 @@ def add_brief(brief: Brief, conn: sqlite3.Connection | None = None) -> int:
     if conn is None:
         conn = get_connection()
     cur = conn.execute(
-        "INSERT INTO briefs (name, project_type, geo, budget_cents, status) VALUES (?, ?, ?, ?, ?)",
-        (brief.name, brief.project_type, brief.geo, brief.budget_cents, brief.status),
+        "INSERT INTO briefs (customer_id, name, project_type, geo, budget_cents, status) VALUES (?, ?, ?, ?, ?, ?)",
+        (brief.customer_id, brief.name, brief.project_type, brief.geo, brief.budget_cents, brief.status),
     )
     conn.commit()
     row_id = cur.lastrowid
@@ -134,6 +177,7 @@ def load_from_json(file_path: str, conn: sqlite3.Connection | None = None) -> di
 
     for item in data if isinstance(data, list) else [data]:
         brief = Brief(
+            customer_id=item["customer_id"],
             name=item["name"],
             project_type=item["project_type"],
             geo=item["geo"],

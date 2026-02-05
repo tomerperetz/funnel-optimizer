@@ -12,15 +12,27 @@ from funnel_optimizer.db import get_connection, init_db, table_counts
 
 conn = get_connection()          # row_factory=Row, FK on
 init_db()                        # CREATE IF NOT EXISTS all tables
-counts = table_counts()          # {"briefs": 0, "content": 0, ...}
+counts = table_counts()          # {"customers": 0, "briefs": 0, ...}
 ```
 
 ## Schema (SQLite at data/pipeline.db)
+
+### customers
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK | AUTOINCREMENT |
+| name | TEXT NOT NULL | Client business name |
+| meta_page_id | TEXT NOT NULL | Facebook Page ID for this client |
+| meta_page_name | TEXT | Facebook Page name (optional) |
+| status | TEXT | active / inactive |
+| created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
+| updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
 
 ### briefs
 | Column | Type | Notes |
 |--------|------|-------|
 | id | INTEGER PK | AUTOINCREMENT |
+| customer_id | INTEGER FK NOT NULL | → customers(id) |
 | name | TEXT NOT NULL | Brief name |
 | project_type | TEXT NOT NULL | Bathroom, Kitchen, etc. |
 | geo | TEXT NOT NULL | DFW, Houston, etc. |
@@ -79,6 +91,25 @@ counts = table_counts()          # {"briefs": 0, "content": 0, ...}
 | cpl_cents | INTEGER | Cost per lead in cents |
 | created_at, updated_at | TIMESTAMP | |
 | UNIQUE(campaign_id, date) | | Upsert key |
+
+## Entity Relationships
+
+```
+customers (1) ──< briefs (1) ──< content (1) ──< campaigns (1) ──< leads
+                                                    │
+                                                    └──< campaign_metrics
+```
+
+- Each **customer** (client) has many **briefs**
+- Each **brief** has many **content** items
+- Each **content** becomes one **campaign**
+- Each **campaign** collects many **leads** and **metrics**
+
+## Multi-Customer Design
+
+- **Customer isolation:** All data traces back to a customer via the FK chain
+- **Page per customer:** Each customer has their own Facebook Page (`meta_page_id`)
+- **Campaigns use customer's page:** Lead forms and ads are created on the customer's page, not a global one
 
 ## Conventions
 

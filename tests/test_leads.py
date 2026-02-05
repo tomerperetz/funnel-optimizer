@@ -5,9 +5,9 @@ from unittest.mock import patch
 from rich.console import Console
 
 
-def _setup_campaign(db):
+def _setup_campaign(db, sample_customer):
     """Create a campaign in DB with Meta IDs."""
-    db.execute("INSERT INTO briefs (name, project_type, geo, budget_cents) VALUES ('B', 'Bath', 'DFW', 5000)")
+    db.execute("INSERT INTO briefs (customer_id, name, project_type, geo, budget_cents) VALUES (1, 'B', 'Bath', 'DFW', 5000)")
     db.execute("INSERT INTO content (brief_id, headline, primary_text, status) VALUES (1, 'H', 'P', 'approved')")
     db.execute(
         """INSERT INTO campaigns (content_id, meta_campaign_id, meta_adset_id, meta_ad_id, meta_form_id, status)
@@ -16,9 +16,9 @@ def _setup_campaign(db):
     db.commit()
 
 
-def test_collect_leads(db, mock_meta_client):
+def test_collect_leads(db, mock_meta_client, sample_customer):
     """Should insert new leads and skip duplicates."""
-    _setup_campaign(db)
+    _setup_campaign(db, sample_customer)
     console = Console(quiet=True)
 
     with patch("funnel_optimizer.pipeline.leads.MetaAdsClient", return_value=mock_meta_client), \
@@ -40,9 +40,9 @@ def test_collect_leads(db, mock_meta_client):
     assert count_after == 2  # No duplicates
 
 
-def test_collect_metrics(db, mock_meta_client):
+def test_collect_metrics(db, mock_meta_client, sample_customer):
     """Should insert metrics and upsert on re-run."""
-    _setup_campaign(db)
+    _setup_campaign(db, sample_customer)
     console = Console(quiet=True)
 
     with patch("funnel_optimizer.pipeline.leads.MetaAdsClient", return_value=mock_meta_client), \
@@ -68,9 +68,9 @@ def test_collect_metrics(db, mock_meta_client):
     assert row["spend_cents"] == 2500
 
 
-def test_collect_leads_specific_campaign(db, mock_meta_client):
+def test_collect_leads_specific_campaign(db, mock_meta_client, sample_customer):
     """Should only collect from the specified campaign."""
-    _setup_campaign(db)
+    _setup_campaign(db, sample_customer)
     console = Console(quiet=True)
 
     with patch("funnel_optimizer.pipeline.leads.MetaAdsClient", return_value=mock_meta_client), \
