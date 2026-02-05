@@ -1,12 +1,31 @@
 # Funnel Optimizer - Task List
 
-> Last updated: 2026-02-04
+> Last updated: 2026-02-05
+
+## Current Goal
+
+**MVP: Full Campaign Creation** — Single call center, single client, call center owns client's Facebook Page.
+
+```
+Customer → Brief → Content → Campaign → Leads → Metrics
+    ↓         ↓        ↓          ↓         ↓        ↓
+  Page ID   Geo,     Headline   PAUSED    Collect  Daily
+            Budget   + Text     → ACTIVE  from API snapshots
+```
+
+### MVP Exit Criteria
+- [ ] Token valid and verified
+- [ ] Geo defaults to US (not Israel)
+- [ ] 1 real campaign created and activated
+- [ ] 1+ real leads collected in database
+- [ ] 1+ days of metrics collected
+- [ ] `funnel status` shows accurate totals
 
 ## Current Phase
 
 **Phase 1 Complete** — End-to-end pipeline working with real Meta API integration.
 
-**Phase 2 In Progress** — Learning loop design, hyperparameters, production readiness.
+**MVP In Progress** — First real campaign for real client.
 
 ## Project Status
 
@@ -182,8 +201,37 @@ Task #24 is foundational — it unblocks the others.
 
 _None yet in Phase 2_
 
+## Execution Plan: MVP
+
+### Phase A: Unblock API (30 min)
+1. Regenerate Meta access token (#22)
+2. Verify with `funnel db check-meta`
+3. Fix Israel → US default geo (#21)
+4. Run tests to verify
+
+### Phase B: Onboard Real Client (1 hour)
+5. Complete customer onboarding checklist (#23)
+6. Collect from call center: client name, Page ID, geo, privacy policy
+7. `funnel customer add --name "..." --page-id "..." --page-name "..."`
+
+### Phase C: Create Campaign (30 min)
+8. `funnel content add-brief --customer-id X --name "..." --project-type "..." --geo "DFW" --budget-cents 5000`
+9. `funnel content add --brief-id X --headline "..." --primary-text "..."`
+10. `funnel content approve X`
+11. `funnel campaign create X`
+12. Review in Meta Ads Manager
+13. `funnel campaign activate X`
+
+### Phase D: Verify Loop (1-2 days wait)
+14. Wait for impressions/leads
+15. `funnel leads collect` — verify leads in DB
+16. `funnel leads metrics` — verify metrics in DB
+17. `funnel status` — full pipeline view
+
+---
+
 ## Notes
 
 - **Demo run:** TestApp2 page was used for testing. Next step is real business page.
-- **Learning loop priority:** User wants to define the feedback mechanism before scaling.
+- **Learning loop:** Deferred to Phase 2 — not needed for first campaign.
 - **Token expiry:** Must regenerate before any live API testing.

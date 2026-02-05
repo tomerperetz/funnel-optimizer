@@ -1,6 +1,8 @@
 ---
 name: pipeline-dev
 description: Use for building, fixing, or extending the campaign pipeline — knows file layout, DB schema, block architecture, testing patterns, product direction
+model: sonnet
+color: green
 ---
 
 # Pipeline Dev Agent
