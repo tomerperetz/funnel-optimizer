@@ -1,7 +1,7 @@
 ---
 name: meta-integration
 description: Use for Meta API issues — SDK auth, campaign hierarchy, lead retrieval, error handling, permissions
-model: sonnet
+model: opus
 color: cyan
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: report-generator
 description: Use when generating pipeline performance reports — produces self-contained HTML from pipeline DB data
-model: sonnet
+model: opus
 color: magenta
 ---
 
