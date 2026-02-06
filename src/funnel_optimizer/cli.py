@@ -7,6 +7,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from funnel_optimizer.config import get_settings
 from funnel_optimizer.db import init_db, table_counts, get_connection
 from funnel_optimizer.models import Brief, Content, Customer
 from funnel_optimizer.pipeline.content import (
@@ -23,12 +24,14 @@ from funnel_optimizer.pipeline.content import (
 
 app = typer.Typer(help="Funnel Optimizer — campaign pipeline CLI")
 db_app = typer.Typer(help="Database management")
+auth_app = typer.Typer(help="Meta authentication")
 customer_app = typer.Typer(help="Customer management")
 content_app = typer.Typer(help="Brief and content management")
 campaign_app = typer.Typer(help="Meta campaign management")
 leads_app = typer.Typer(help="Lead collection")
 
 app.add_typer(db_app, name="db")
+app.add_typer(auth_app, name="auth")
 app.add_typer(customer_app, name="customer")
 app.add_typer(content_app, name="content")
 app.add_typer(campaign_app, name="campaign")
@@ -51,7 +54,6 @@ def db_init():
 def db_check_meta():
     """Verify Meta API credentials by reading ad account info."""
     from funnel_optimizer.clients.meta_ads import MetaAdsClient
-    from funnel_optimizer.config import get_settings
     try:
         settings = get_settings()
         if not settings.meta_access_token:
@@ -76,6 +78,185 @@ def db_status():
     table.add_column("Rows", justify="right")
     for name, count in counts.items():
         table.add_row(name, str(count))
+    console.print(table)
+
+
+# --- Auth ---
+
+
+@auth_app.command("start")
+def auth_start(
+    no_browser: bool = typer.Option(False, "--no-browser", help="Don't open browser automatically"),
+    redirect_uri: Optional[str] = typer.Option(None, "--redirect-uri", help="Custom redirect URI (e.g., ngrok URL)"),
+):
+    """Start OAuth flow to get long-lived page tokens and link to customers."""
+    from funnel_optimizer.auth import run_oauth_flow, set_redirect_uri, REDIRECT_PORT
+    from funnel_optimizer.pipeline.content import (
+        add_customer,
+        get_customer_by_page_id,
+        list_customers,
+        update_customer_token,
+    )
+
+    try:
+        settings = get_settings()
+        if not settings.meta_app_id:
+            console.print("[red]FO_META_APP_ID not set. Add it to your .env file.[/red]")
+            raise typer.Exit(1)
+        if not settings.meta_app_secret:
+            console.print("[red]FO_META_APP_SECRET not set. Add it to your .env file.[/red]")
+            raise typer.Exit(1)
+
+        # Set custom redirect URI if provided (for ngrok)
+        if redirect_uri:
+            set_redirect_uri(redirect_uri)
+            console.print(f"[cyan]Using custom redirect URI: {redirect_uri}[/cyan]")
+            console.print(f"[yellow]Make sure ngrok is forwarding to localhost:{REDIRECT_PORT}[/yellow]\n")
+
+        console.print("[bold]Starting Meta OAuth flow...[/bold]")
+        console.print("You'll be asked to log in and grant access to your Pages.\n")
+
+        user_token, pages = run_oauth_flow(open_browser=not no_browser)
+
+        if not pages:
+            console.print("[yellow]No pages found. Make sure you have admin access to at least one Page.[/yellow]")
+            raise typer.Exit(1)
+
+        # Show available pages
+        console.print(f"\n[bold]Found {len(pages)} Page(s):[/bold]\n")
+        table = Table()
+        table.add_column("#", style="cyan", width=3)
+        table.add_column("Page Name")
+        table.add_column("Page ID")
+        table.add_column("Linked Customer")
+
+        for i, page in enumerate(pages, 1):
+            existing = get_customer_by_page_id(page.id)
+            linked = f"[green]{existing.name}[/green]" if existing else "[dim]—[/dim]"
+            table.add_row(str(i), page.name, page.id, linked)
+        console.print(table)
+
+        # Process each page
+        console.print("\n[bold]Link pages to customers:[/bold]")
+        console.print("[dim]Enter page numbers to link (comma-separated), or 'all', or 'skip'[/dim]")
+
+        selection = typer.prompt("Pages to link", default="all")
+
+        if selection.lower() == "skip":
+            console.print("[yellow]Skipped. No tokens saved.[/yellow]")
+            return
+
+        if selection.lower() == "all":
+            indices = list(range(len(pages)))
+        else:
+            try:
+                indices = [int(x.strip()) - 1 for x in selection.split(",")]
+            except ValueError:
+                console.print("[red]Invalid selection[/red]")
+                raise typer.Exit(1)
+
+        # Link selected pages
+        for idx in indices:
+            if idx < 0 or idx >= len(pages):
+                console.print(f"[yellow]Skipping invalid index {idx + 1}[/yellow]")
+                continue
+
+            page = pages[idx]
+            existing = get_customer_by_page_id(page.id)
+
+            if existing:
+                # Update existing customer's token
+                update_customer_token(existing.id, page.access_token)
+                console.print(f"[green]✓[/green] Updated token for customer: {existing.name}")
+            else:
+                # Create new customer
+                console.print(f"\n[bold]New page: {page.name}[/bold]")
+                customer_name = typer.prompt("  Customer name", default=page.name)
+
+                customer = Customer(
+                    name=customer_name,
+                    meta_page_id=page.id,
+                    meta_page_name=page.name,
+                    meta_page_access_token=page.access_token,
+                )
+                customer_id = add_customer(customer)
+                console.print(f"[green]✓[/green] Created customer #{customer_id}: {customer_name}")
+
+        console.print("\n[green]Done![/green] Page tokens saved to customer records.")
+        console.print("[dim]Page tokens don't expire as long as you maintain admin access.[/dim]")
+        console.print("\nRun [cyan]funnel customer list[/cyan] to see customers.")
+
+    except Exception as e:
+        console.print(f"[red]Auth failed: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@auth_app.command("status")
+def auth_status():
+    """Show token status for all customers."""
+    from funnel_optimizer.auth import debug_token
+    from funnel_optimizer.pipeline.content import list_customers
+    from datetime import datetime
+
+    customers = list_customers()
+
+    if not customers:
+        console.print("[yellow]No customers yet. Run: funnel auth start[/yellow]")
+        return
+
+    console.print("\n[bold]Customer Token Status[/bold]\n")
+
+    table = Table()
+    table.add_column("ID", style="cyan", width=4)
+    table.add_column("Customer")
+    table.add_column("Page")
+    table.add_column("Token")
+    table.add_column("Status")
+
+    for c in customers:
+        if not c.meta_page_access_token:
+            table.add_row(
+                str(c.id),
+                c.name,
+                c.meta_page_id,
+                "[dim]—[/dim]",
+                "[red]No token[/red]",
+            )
+            continue
+
+        try:
+            info = debug_token(c.meta_page_access_token)
+            is_valid = info.get("is_valid", False)
+            expires_at = info.get("expires_at", 0)
+
+            if not is_valid:
+                status = "[red]Invalid[/red]"
+            elif expires_at == 0:
+                status = "[green]Never expires[/green]"
+            else:
+                expiry = datetime.fromtimestamp(expires_at)
+                days = (expiry - datetime.now()).days
+                if days < 7:
+                    status = f"[red]Expires in {days}d[/red]"
+                else:
+                    status = f"[yellow]Expires in {days}d[/yellow]"
+
+            table.add_row(
+                str(c.id),
+                c.name,
+                c.meta_page_id,
+                f"{c.meta_page_access_token[:12]}...",
+                status,
+            )
+        except Exception as e:
+            table.add_row(
+                str(c.id),
+                c.name,
+                c.meta_page_id,
+                f"{c.meta_page_access_token[:12]}...",
+                f"[red]Error: {e}[/red]",
+            )
+
     console.print(table)
 
 
@@ -106,14 +287,17 @@ def customer_list_cmd():
     table.add_column("Name")
     table.add_column("Page ID")
     table.add_column("Page Name")
+    table.add_column("Token", width=8)
     table.add_column("Status")
     for c in customers:
         status_style = "green" if c.status == "active" else "dim"
+        token_status = "[green]✓[/green]" if c.meta_page_access_token else "[red]✗[/red]"
         table.add_row(
             str(c.id),
             c.name,
             c.meta_page_id,
             c.meta_page_name or "-",
+            token_status,
             f"[{status_style}]{c.status}[/{status_style}]",
         )
     console.print(table)

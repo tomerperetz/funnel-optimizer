@@ -15,8 +15,9 @@ from funnel_optimizer.pipeline.content import get_brief, get_content, get_custom
 logger = logging.getLogger(__name__)
 
 
-def _get_client() -> MetaAdsClient:
-    return MetaAdsClient(get_settings())
+def _get_client(access_token: str | None = None) -> MetaAdsClient:
+    """Get Meta API client, optionally with a specific access token."""
+    return MetaAdsClient(get_settings(), access_token=access_token)
 
 
 def create_campaign_from_content(
@@ -53,8 +54,15 @@ def create_campaign_from_content(
             conn.close()
         return
 
+    if not customer.meta_page_access_token:
+        console.print(f"[red]Customer #{brief.customer_id} has no access token. Run: funnel auth start[/red]")
+        if own_conn:
+            conn.close()
+        return
+
     settings = get_settings()
-    client = MetaAdsClient(settings)
+    # Use customer's page token for API calls
+    client = MetaAdsClient(settings, access_token=customer.meta_page_access_token)
     import time
     timestamp = int(time.time())
     campaign_name = f"{customer.name} - {brief.project_type} - {brief.geo} - {brief.name} - {timestamp}"
@@ -194,9 +202,27 @@ def _update_campaign_status(
             conn.close()
         return
 
+    # Get customer token for this campaign
+    customer_row = conn.execute(
+        """SELECT cu.meta_page_access_token
+           FROM campaigns ca
+           JOIN content co ON ca.content_id = co.id
+           JOIN briefs b ON co.brief_id = b.id
+           JOIN customers cu ON b.customer_id = cu.id
+           WHERE ca.id = ?""",
+        (campaign_id,),
+    ).fetchone()
+
+    access_token = customer_row["meta_page_access_token"] if customer_row else None
+    if not access_token:
+        console.print(f"[red]No access token for campaign #{campaign_id}'s customer[/red]")
+        if own_conn:
+            conn.close()
+        return
+
     meta_status = "ACTIVE" if target_status == "active" else "PAUSED"
     try:
-        client = _get_client()
+        client = _get_client(access_token=access_token)
         client.update_campaign_status(meta_campaign_id, meta_status)
         if row["meta_adset_id"]:
             client.update_adset_status(row["meta_adset_id"], meta_status)

@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS customers (
     name TEXT NOT NULL,
     meta_page_id TEXT NOT NULL,
     meta_page_name TEXT,
+    meta_page_access_token TEXT,
     status TEXT NOT NULL DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -96,7 +97,18 @@ def init_db(db_path: Path | None = None) -> None:
     """Create all tables if they don't exist."""
     conn = get_connection(db_path)
     conn.executescript(DDL)
+    _run_migrations(conn)
     conn.close()
+
+
+def _run_migrations(conn: sqlite3.Connection) -> None:
+    """Run any pending schema migrations."""
+    # Migration: Add meta_page_access_token to customers if missing
+    cursor = conn.execute("PRAGMA table_info(customers)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if "meta_page_access_token" not in columns:
+        conn.execute("ALTER TABLE customers ADD COLUMN meta_page_access_token TEXT")
+        conn.commit()
 
 
 def table_counts(db_path: Path | None = None) -> dict[str, int]:

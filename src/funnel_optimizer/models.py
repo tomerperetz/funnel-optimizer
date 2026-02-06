@@ -10,6 +10,7 @@ class Customer(BaseModel):
     name: str
     meta_page_id: str
     meta_page_name: str | None = None
+    meta_page_access_token: str | None = None  # Long-lived page token (never expires)
     status: str = "active"  # active | inactive
     created_at: datetime | None = None
     updated_at: datetime | None = None

@@ -22,12 +22,20 @@ logger = logging.getLogger(__name__)
 class MetaAdsClient:
     """Meta Marketing API operations. Thin HTTP layer — no business logic."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, access_token: str | None = None):
+        """Initialize Meta API client.
+
+        Args:
+            settings: App configuration (app_id, app_secret, ad_account_id)
+            access_token: Optional token override. If not provided, uses settings.meta_access_token.
+                         Use this to pass customer-specific page tokens.
+        """
         self.settings = settings
+        self._access_token = access_token or settings.meta_access_token
         FacebookAdsApi.init(
             app_id=settings.meta_app_id,
             app_secret=settings.meta_app_secret,
-            access_token=settings.meta_access_token,
+            access_token=self._access_token,
             api_version=settings.meta_api_version,
         )
         self.account = AdAccount(settings.meta_ad_account_id)

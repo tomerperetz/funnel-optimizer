@@ -17,14 +17,42 @@ def add_customer(customer: Customer, conn: sqlite3.Connection | None = None) -> 
     if conn is None:
         conn = get_connection()
     cur = conn.execute(
-        "INSERT INTO customers (name, meta_page_id, meta_page_name, status) VALUES (?, ?, ?, ?)",
-        (customer.name, customer.meta_page_id, customer.meta_page_name, customer.status),
+        "INSERT INTO customers (name, meta_page_id, meta_page_name, meta_page_access_token, status) VALUES (?, ?, ?, ?, ?)",
+        (customer.name, customer.meta_page_id, customer.meta_page_name, customer.meta_page_access_token, customer.status),
     )
     conn.commit()
     row_id = cur.lastrowid
     if close:
         conn.close()
     return row_id
+
+
+def update_customer_token(customer_id: int, token: str, conn: sqlite3.Connection | None = None) -> bool:
+    """Update a customer's Meta page access token. Returns True if found."""
+    close = conn is None
+    if conn is None:
+        conn = get_connection()
+    cur = conn.execute(
+        "UPDATE customers SET meta_page_access_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (token, customer_id),
+    )
+    conn.commit()
+    changed = cur.rowcount > 0
+    if close:
+        conn.close()
+    return changed
+
+
+def get_customer_by_page_id(page_id: str, conn: sqlite3.Connection | None = None) -> Customer | None:
+    """Return a customer by Meta page ID."""
+    close = conn is None
+    if conn is None:
+        conn = get_connection()
+    row = conn.execute("SELECT * FROM customers WHERE meta_page_id = ?", (page_id,)).fetchone()
+    result = Customer(**dict(row)) if row else None
+    if close:
+        conn.close()
+    return result
 
 
 def list_customers(conn: sqlite3.Connection | None = None) -> list[Customer]:

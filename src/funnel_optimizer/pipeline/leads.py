@@ -14,15 +14,23 @@ logger = logging.getLogger(__name__)
 
 
 def _get_campaigns(campaign_id: int | None, conn: sqlite3.Connection) -> list[dict]:
-    """Get campaigns to collect from. Filters to those with form/campaign IDs."""
+    """Get campaigns to collect from, including customer token. Filters to those with form/campaign IDs."""
+    base_query = """
+        SELECT ca.*, cu.meta_page_access_token
+        FROM campaigns ca
+        JOIN content co ON ca.content_id = co.id
+        JOIN briefs b ON co.brief_id = b.id
+        JOIN customers cu ON b.customer_id = cu.id
+        WHERE ca.meta_form_id IS NOT NULL
+    """
     if campaign_id is not None:
         rows = conn.execute(
-            "SELECT * FROM campaigns WHERE id = ? AND meta_form_id IS NOT NULL",
+            base_query + " AND ca.id = ?",
             (campaign_id,),
         ).fetchall()
     else:
         rows = conn.execute(
-            "SELECT * FROM campaigns WHERE status IN ('active', 'paused') AND meta_form_id IS NOT NULL"
+            base_query + " AND ca.status IN ('active', 'paused')"
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -41,11 +49,17 @@ def collect_leads(
             conn.close()
         return
 
-    client = MetaAdsClient(get_settings())
+    settings = get_settings()
     total_new = 0
 
     for camp in campaigns:
+        access_token = camp.get("meta_page_access_token")
+        if not access_token:
+            console.print(f"  [yellow]Campaign #{camp['id']}: No access token, skipping[/yellow]")
+            continue
+
         try:
+            client = MetaAdsClient(settings, access_token=access_token)
             leads = client.get_leads(camp["meta_form_id"])
             new_count = 0
             for lead in leads:
@@ -93,13 +107,20 @@ def collect_metrics(
             conn.close()
         return
 
-    client = MetaAdsClient(get_settings())
+    settings = get_settings()
     total_days = 0
 
     for camp in campaigns:
         if not camp.get("meta_campaign_id"):
             continue
+
+        access_token = camp.get("meta_page_access_token")
+        if not access_token:
+            console.print(f"  [yellow]Campaign #{camp['id']}: No access token, skipping[/yellow]")
+            continue
+
         try:
+            client = MetaAdsClient(settings, access_token=access_token)
             insights = client.get_campaign_insights(camp["meta_campaign_id"])
             for day in insights:
                 conn.execute(
