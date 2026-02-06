@@ -122,7 +122,61 @@ Environment variables with `FO_` prefix, loaded from `.env`. See `.env.example`.
 8. **Approval gates at every phase transition** — content must be approved before campaign creation, campaigns must be explicitly activated
 9. **Vertical-agnostic** — no hardcoded project types, geos, or industry-specific logic. Call centers configure these per customer.
 
-## Agent Guardrails (Phase 3)
+## Agent Organization
+
+Agents are organized into three teams with clear responsibilities:
+
+### Product Team (Strategy)
+Sets goals, defines what to optimize for, establishes guardrails.
+
+| Agent | Role |
+|-------|------|
+| `product-manager` | Goals, CPL targets, guardrails, what to test |
+| `project-manager` | Coordination, priorities, tracking |
+
+### Data Team (Analysis)
+Designs experiments, measures results, provides insights. Serves both Software and Campaign teams.
+
+| Agent | Role |
+|-------|------|
+| `data-scientist` | Experiment design, models, methodology |
+| `data-analyst` | Measurement, reporting, insights |
+| `experiment-designer` | Statistical test design, sample sizes |
+
+### Campaign Team (Execution)
+Executes campaigns and optimizations within product-defined guardrails.
+
+| Agent | Role |
+|-------|------|
+| `campaign-orchestrator` | Coordinates optimization loop, executes decisions |
+| `content-creator` | Generates ad creative variations |
+| `targeting-optimizer` | Optimizes audience targeting |
+| `budget-controller` | Manages spend allocation and bids |
+
+### Software Team (Development)
+Builds and maintains the product codebase.
+
+| Agent | Role |
+|-------|------|
+| `pipeline-dev` | Pipeline code, DB schema, business logic |
+| `meta-integration` | Meta Ads API integration |
+| `feature-manager` | Git workflow, feature implementation |
+| `report-generator` | Performance reports from DB |
+
+### Agent Flow
+```
+product-manager → sets strategy, targets, guardrails
+       ↓
+data-scientist → designs experiments to meet goals
+       ↓
+campaign team → executes campaigns
+       ↓
+data-analyst → measures results, reports back
+       ↓
+(loop continues)
+```
+
+## Agent Guardrails
 
 Agents operate autonomously within a rule engine:
 - **Budget caps** — per-campaign and per-customer daily/monthly limits

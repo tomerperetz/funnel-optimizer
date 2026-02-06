@@ -1,31 +1,20 @@
 # Funnel Optimizer - Task List
 
-> Last updated: 2026-02-05
+> Last updated: 2026-02-06
 
 ## Current Goal
 
-**MVP: Full Campaign Creation** — Single call center, single client, call center owns client's Facebook Page.
+**Phase 2: Experiment-Driven Optimization** -- Build the learning loop that connects campaign performance to future decisions.
 
-```
-Customer → Brief → Content → Campaign → Leads → Metrics
-    ↓         ↓        ↓          ↓         ↓        ↓
-  Page ID   Geo,     Headline   PAUSED    Collect  Daily
-            Budget   + Text     → ACTIVE  from API snapshots
-```
+## Phase Summary
 
-### MVP Exit Criteria
-- [ ] Token valid and verified
-- [ ] Geo defaults to US (not Israel)
-- [ ] 1 real campaign created and activated
-- [ ] 1+ real leads collected in database
-- [ ] 1+ days of metrics collected
-- [ ] `funnel status` shows accurate totals
-
-## Current Phase
-
-**Phase 1 Complete** — End-to-end pipeline working with real Meta API integration.
-
-**MVP In Progress** — First real campaign for real client.
+| Phase | Focus | Status |
+|-------|-------|--------|
+| Phase 1 | End-to-end pipeline with real Meta API | Complete |
+| Phase 2A | Experiment foundation (schema, A/B tests) | In Progress |
+| Phase 2B | Measurement and analysis | Pending |
+| Phase 2C | Agent scaffolding | Pending |
+| Phase 3 | Autonomous optimization | Future |
 
 ## Project Status
 
@@ -34,204 +23,342 @@ Customer → Brief → Content → Campaign → Leads → Metrics
 | Pipeline code | Complete | 18 tests passing |
 | Multi-customer | Complete | customers table with meta_page_id |
 | Meta API integration | Complete | Campaign, AdSet, Ad, Lead Form, Insights |
-| Demo campaign | Created | TestApp2 page |
-| Token | Expired | Needs regeneration before API calls |
+| OAuth flow | Complete | Per-customer page tokens |
+| Campaign #2 (Wa2ig) | Created | PAUSED, $1/day budget |
 | Lead collection | Untested | 0 leads in DB |
 | Metrics collection | Untested | 0 metrics in DB |
-
-## Task List
-
-### Tier 1: Unblock Real Campaigns
-
-These have no dependencies and can be done immediately.
-
-| ID | Task | Status | Description |
-|----|------|--------|-------------|
-| #21 | Fix default targeting geo | Pending | Change hardcoded Israel → US in meta_ads.py |
-| #22 | Token management | Pending | Strategy for long-lived tokens, expiry checking |
-| #23 | Customer onboarding checklist | Pending | Document what info to collect from business clients |
-
-### Tier 2: Learning Loop Foundation
-
-Task #24 is foundational — it unblocks the others.
-
-| ID | Task | Status | Blocked By |
-|----|------|--------|------------|
-| #24 | Define learning loop architecture | Pending | — |
-| #25 | Campaign hyperparameters config | Pending | #24 |
-| #26 | Budget guardrails system | Pending | #24 |
-| #27 | Performance thresholds | Pending | #24 |
-
-## Task Details
-
-### #21: Fix default targeting geo (Israel → US)
-
-**Problem:** `meta_ads.py` has hardcoded `geo_locations: {"countries": ["IL"]}` as fallback.
-
-**Solution:**
-- Default to US
-- Pull geo from brief.geo field
-- Map geo strings (e.g., "DFW") to Meta targeting format
-
-**Acceptance criteria:**
-- [ ] Default geo is US, not Israel
-- [ ] Geo pulled from brief when available
-- [ ] Tests verify geo handling
+| Experiment framework | Not started | Design complete |
 
 ---
 
-### #22: Implement long-lived token management
+## Tier 0: Unblock First Campaign
 
-**Problem:** Meta access tokens expire (current one expired 2026-02-04).
+These tasks must complete before we can run experiments.
 
-**Options:**
-1. System User tokens (60-day, refreshable via API)
-2. Long-lived Page tokens (never expire for owned pages)
-3. Manual refresh with clear instructions
-
-**Acceptance criteria:**
-- [ ] Token strategy documented in docs/meta-setup.md
-- [ ] Token expiry check in `funnel db check-meta`
-- [ ] Consider auto-refresh or CLI refresh command
+| ID | Task | Status | Owner | Notes |
+|----|------|--------|-------|-------|
+| #1 | Regenerate Meta access token | Pending | Human | Token expired 2026-02-04 |
+| #2 | Fix default geo (IL -> US) | Pending | pipeline-dev | Hardcoded in meta_ads.py L101 |
+| #3 | Activate Campaign #2 | Blocked | Human | Needs #1 |
+| #4 | Collect first leads | Blocked | Human | Needs #3 + wait |
+| #5 | Collect first metrics | Blocked | Human | Needs #3 + wait |
 
 ---
 
-### #23: Create customer onboarding checklist
+## Tier 1: Experiment Foundation (Phase 2A)
 
-**Purpose:** Document what info to collect before running campaigns for a business.
+Database and basic experiment support.
 
-**Required info:**
-- Business name
-- Facebook Page ID (or create new page)
-- Target geography (cities, metros, states)
-- Project types they handle
-- Budget limits (daily/monthly)
-- Brand guidelines / prohibited words
-- Privacy policy URL
+| ID | Task | Status | Blocked By | Agent |
+|----|------|--------|------------|-------|
+| #10 | Create experiment tables (experiments, variants, results, learnings) | Pending | - | pipeline-dev |
+| #11 | Add hyperparameters model | Pending | - | pipeline-dev |
+| #12 | Implement A/B test creation (split budget campaigns) | Pending | #10 | pipeline-dev |
+| #13 | Add experiment CLI commands | Pending | #12 | pipeline-dev |
+| #14 | Write experiment table tests | Pending | #10 | pipeline-dev |
 
-**Acceptance criteria:**
-- [ ] Checklist in docs/customer-onboarding.md
-- [ ] Required vs optional fields identified
-- [ ] Maps to database schema
+### Task Details
 
----
+#### #10: Create experiment tables
 
-### #24: Define learning loop architecture
+**Schema:**
+```sql
+CREATE TABLE experiments (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    hypothesis TEXT,
+    status TEXT DEFAULT 'draft',  -- draft | running | completed | cancelled
+    experiment_type TEXT,  -- a_b | sequential | bandit
+    start_date TEXT,
+    end_date TEXT,
+    success_metric TEXT,  -- cpl | ctr | cvr | meeting_rate
+    min_sample_size INTEGER DEFAULT 100,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-**Purpose:** Design the feedback loop connecting campaign performance to future decisions.
+CREATE TABLE experiment_variants (
+    id INTEGER PRIMARY KEY,
+    experiment_id INTEGER REFERENCES experiments(id),
+    campaign_id INTEGER REFERENCES campaigns(id),
+    variant_name TEXT,
+    traffic_allocation REAL DEFAULT 0.5,
+    hyperparameters_json TEXT
+);
 
-**Key questions:**
-1. What metrics drive decisions? (CPL, CTR, conversion rate, lead quality)
-2. What decisions can be made? (pause/activate, adjust budget, change targeting)
-3. Who makes decisions? (Phase 2: human, Phase 3: agent within guardrails)
-4. How is learning stored? (campaign_metrics? new table?)
+CREATE TABLE experiment_results (
+    id INTEGER PRIMARY KEY,
+    experiment_id INTEGER REFERENCES experiments(id),
+    calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    winner_variant_id INTEGER REFERENCES experiment_variants(id),
+    effect_size REAL,
+    confidence_level REAL,
+    p_value REAL,
+    recommendation TEXT,
+    analysis_json TEXT
+);
 
-**Deliverables:**
-- [ ] Architecture diagram (data flow)
-- [ ] Decision matrix (metric thresholds → actions)
-- [ ] Schema design for storing learnings
-- [ ] Phase 2 vs Phase 3 separation
-- [ ] Write to docs/learning-loop-design.md
+CREATE TABLE learnings (
+    id INTEGER PRIMARY KEY,
+    source_experiment_id INTEGER REFERENCES experiments(id),
+    category TEXT,  -- creative | targeting | bidding | timing
+    finding TEXT,
+    confidence TEXT,  -- high | medium | low
+    applicable_to TEXT,  -- all | specific customer/project type
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
 
----
+#### #11: Add hyperparameters model
 
-### #25: Create campaign hyperparameters configuration
+Extract hardcoded values from `meta_ads.py` into a `HyperParameters` model:
+- bid_strategy (default: LOWEST_COST_WITHOUT_CAP)
+- optimization_goal (default: LEAD_GENERATION)
+- billing_event (default: IMPRESSIONS)
+- age_min (default: 18)
+- age_max (default: 65)
+- default_geo (default: US)
 
-**Problem:** Values hardcoded in meta_ads.py:
-- `bid_strategy: "LOWEST_COST_WITHOUT_CAP"`
-- `optimization_goal: "LEAD_GENERATION"`
-- `billing_event: "IMPRESSIONS"`
-- `targeting: age_min=18, age_max=65`
-
-**Design decision:** Where do hyperparameters live?
-- Option A: Brief-level (each campaign inherits)
-- Option B: Separate `campaign_config` table
-- Option C: Customer-level defaults + brief-level overrides
-
-**Acceptance criteria:**
-- [ ] Hyperparameters extracted to config
-- [ ] Defaults documented
-- [ ] Can override per-brief or per-customer
-- [ ] Tests pass
-
----
-
-### #26: Design budget guardrails system
-
-**Purpose:** Safety limits before agent autonomy (Phase 3).
-
-**Guardrail types:**
-1. Per-campaign daily budget cap (exists: brief.budget_cents)
-2. Per-customer monthly budget cap (new)
-3. Per-customer concurrent campaign limit (new)
-4. Auto-pause if CPL exceeds threshold (new)
-
-**Enforcement timing:**
-- At campaign creation (reject if over)
-- At metrics collection (auto-pause if exceeded)
-- At activation (check before enabling)
-
-**Acceptance criteria:**
-- [ ] Schema updates for budget limits
-- [ ] Enforcement at key checkpoints
-- [ ] Clear error messages
-- [ ] Tests for guardrails
+Store as JSON in content or separate table.
 
 ---
 
-### #27: Add performance thresholds to campaign model
+## Tier 2: Measurement (Phase 2B)
 
-**Purpose:** Store thresholds that trigger actions.
+Statistical analysis and result tracking.
 
-**Threshold types:**
-- `max_cpl_cents`: Auto-pause if CPL exceeds
-- `min_ctr`: Alert if CTR drops below
-- `min_daily_leads`: Alert if volume drops
-- `max_daily_spend_cents`: Hard cap
+| ID | Task | Status | Blocked By | Agent |
+|----|------|--------|------------|-------|
+| #20 | Implement statistical significance calculator | Pending | #14 | data-scientist |
+| #21 | Add experiment metrics aggregation | Pending | #10 | pipeline-dev |
+| #22 | Implement winner detection algorithm | Pending | #20, #21 | data-scientist |
+| #23 | Build experiment analysis function | Pending | #22 | data-scientist |
+| #24 | Add learning extraction and storage | Pending | #23 | data-scientist |
 
-**Acceptance criteria:**
-- [ ] Schema updated with threshold columns
-- [ ] Models updated
-- [ ] Threshold checking in collect_metrics
-- [ ] Tests for threshold triggering
+### Task Details
 
----
+#### #20: Statistical significance calculator
 
-## Completed Tasks
+Implement in `src/funnel_optimizer/analytics/`:
+```python
+def calculate_significance(
+    control_leads: int,
+    control_spend: int,
+    variant_leads: int,
+    variant_spend: int
+) -> dict:
+    """Return effect_size, p_value, significant bool"""
+```
 
-_None yet in Phase 2_
+#### #22: Winner detection algorithm
 
-## Execution Plan: MVP
-
-### Phase A: Unblock API (30 min)
-1. Regenerate Meta access token (#22)
-2. Verify with `funnel db check-meta`
-3. Fix Israel → US default geo (#21)
-4. Run tests to verify
-
-### Phase B: Onboard Real Client (1 hour)
-5. Complete customer onboarding checklist (#23)
-6. Collect from call center: client name, Page ID, geo, privacy policy
-7. `funnel customer add --name "..." --page-id "..." --page-name "..."`
-
-### Phase C: Create Campaign (30 min)
-8. `funnel content add-brief --customer-id X --name "..." --project-type "..." --geo "DFW" --budget-cents 5000`
-9. `funnel content add --brief-id X --headline "..." --primary-text "..."`
-10. `funnel content approve X`
-11. `funnel campaign create X`
-12. Review in Meta Ads Manager
-13. `funnel campaign activate X`
-
-### Phase D: Verify Loop (1-2 days wait)
-14. Wait for impressions/leads
-15. `funnel leads collect` — verify leads in DB
-16. `funnel leads metrics` — verify metrics in DB
-17. `funnel status` — full pipeline view
+Rules:
+1. Minimum 100 leads per variant
+2. p-value < 0.05
+3. Effect size > 10% (avoid declaring winner for trivial differences)
+4. Both variants ran for same duration
 
 ---
 
-## Notes
+## Tier 3: Agent Scaffolding (Phase 2C)
 
-- **Demo run:** TestApp2 page was used for testing. Next step is real business page.
-- **Learning loop:** Deferred to Phase 2 — not needed for first campaign.
-- **Token expiry:** Must regenerate before any live API testing.
+Build the agent framework.
+
+| ID | Task | Status | Blocked By | Agent |
+|----|------|--------|------------|-------|
+| #30 | Create base agent class (analyze, recommend, execute, learn) | Pending | - | pipeline-dev |
+| #31 | Wire campaign-orchestrator to DB and CLI | Pending | #30 | pipeline-dev |
+| #32 | Wire budget-controller to briefs.budget_cents | Pending | #30 | pipeline-dev |
+| #33 | Add experiment management commands | Pending | #12 | pipeline-dev |
+| #34 | Add agent definitions to .claude/agents/ | **Complete** | - | project-manager |
+
+### Task Details
+
+#### #30: Base agent class
+
+```python
+class BaseAgent:
+    def analyze(self, context: dict) -> dict:
+        """Analyze current state, return insights."""
+
+    def recommend(self, context: dict) -> list[Recommendation]:
+        """Propose actions based on analysis."""
+
+    def execute(self, action: Action) -> Result:
+        """Execute an approved action."""
+
+    def learn(self, outcome: Outcome) -> None:
+        """Update internal state based on outcome."""
+```
+
+#### #34: Agent definitions (Complete)
+
+All 13 agents defined in `.claude/agents/`:
+- Product: product-manager, project-manager
+- Data: data-scientist, data-analyst, experiment-designer
+- Campaign: campaign-orchestrator, content-creator, targeting-optimizer, budget-controller
+- Software: pipeline-dev, meta-integration, feature-manager, report-generator
+
+---
+
+## Tier 4: Guardrails (Phase 2D)
+
+Safety rails before autonomy.
+
+| ID | Task | Status | Blocked By | Agent |
+|----|------|--------|------------|-------|
+| #40 | Add max_cpl_cents to briefs table | Pending | - | pipeline-dev |
+| #41 | Add monthly_budget_cents to customers table | Pending | - | pipeline-dev |
+| #42 | Implement auto-pause on CPL threshold | Pending | #40 | pipeline-dev |
+| #43 | Implement daily spend guardrail | Pending | #5 | pipeline-dev |
+| #44 | Add alerting system (console + future webhook) | Pending | #42, #43 | pipeline-dev |
+
+---
+
+## Tier 5: Autonomy (Phase 3)
+
+Full autonomous optimization -- future work.
+
+| ID | Task | Status | Blocked By | Agent |
+|----|------|--------|------------|-------|
+| #50 | Add hyperparameter tuning to budget-controller | Future | Tier 3, 4 | data-scientist |
+| #51 | Wire content-creator to generate ad variations | Future | Tier 3 | content-creator |
+| #52 | Add bandit-style budget allocation | Future | #50 | budget-controller |
+| #53 | Implement creative fatigue detection | Future | Tier 2 | data-analyst |
+| #54 | Build escalation and override system | Future | Tier 4 | campaign-orchestrator |
+
+---
+
+## Hyperparameters Inventory
+
+Extracted from codebase -- these are the levers we can tune.
+
+### Budget Parameters
+| Parameter | Location | Default | Range |
+|-----------|----------|---------|-------|
+| daily_budget_cents | brief.budget_cents | 100 | 100-100000 |
+| bid_strategy | meta_ads.py L110 | LOWEST_COST_WITHOUT_CAP | See options |
+| billing_event | meta_ads.py L108 | IMPRESSIONS | IMPRESSIONS, LINK_CLICKS |
+
+### Targeting Parameters
+| Parameter | Location | Default | Notes |
+|-----------|----------|---------|-------|
+| geo_countries | meta_ads.py L101 | IL (bug!) | Should be US |
+| age_min | meta_ads.py L103 | 18 | 18-65 |
+| age_max | meta_ads.py L104 | 65 | age_min-65+ |
+| interests | content.targeting_json | None | Meta interest IDs |
+
+### Creative Parameters
+| Parameter | Location | Default | Notes |
+|-----------|----------|---------|-------|
+| headline | content.headline | Required | Max 40 chars |
+| primary_text | content.primary_text | Required | Max 125 chars |
+| cta | content.cta | LEARN_MORE | See CTA options |
+| image_url | content.image_url | None | 1200x628 recommended |
+
+### CTA Options
+LEARN_MORE, SIGN_UP, GET_QUOTE, CONTACT_US, APPLY_NOW, BOOK_NOW, DOWNLOAD
+
+### Bid Strategy Options
+- LOWEST_COST_WITHOUT_CAP (default, safest)
+- LOWEST_COST_WITH_BID_CAP (set max bid)
+- COST_CAP (target specific CPL)
+
+---
+
+## Success Metrics
+
+### Phase 2 Exit Criteria
+- [ ] 3+ experiments completed with statistical conclusions
+- [ ] Experiment dashboard showing active and completed tests
+- [ ] Learnings table with 5+ documented findings
+- [ ] Auto-pause working for budget/CPL guardrails
+- [ ] At least one agent running (Results Analyst)
+
+### Phase 3 Exit Criteria (Future)
+- [ ] Agents running autonomously for 30+ days
+- [ ] 20%+ improvement in average CPL vs Phase 2 baseline
+- [ ] <5% false positive rate on auto-pause decisions
+- [ ] Human intervention rate <1x per week per customer
+
+---
+
+## Agent Architecture
+
+Agents are organized into four teams. See CLAUDE.md for full documentation.
+
+### Product Team (Strategy)
+| Agent | Purpose | Color |
+|-------|---------|-------|
+| product-manager | Goals, CPL targets, guardrails, what to test | Purple |
+| project-manager | Coordination, priorities, tracking | Purple |
+
+### Data Team (Analysis)
+Serves both Software and Campaign teams.
+
+| Agent | Purpose | Color |
+|-------|---------|-------|
+| data-scientist | Experiment design, models, methodology | Orange |
+| data-analyst | Measurement, reporting, insights | Red |
+| experiment-designer | Statistical test design, sample sizes | Blue |
+
+### Campaign Team (Execution)
+| Agent | Purpose | Color |
+|-------|---------|-------|
+| campaign-orchestrator | Coordinates optimization loop, executes decisions | Cyan |
+| content-creator | Generates ad creative variations | Yellow |
+| targeting-optimizer | Optimizes audience targeting | Orange |
+| budget-controller | Manages spend allocation and bids | Green |
+
+### Software Team (Development)
+| Agent | Purpose | Color |
+|-------|---------|-------|
+| pipeline-dev | Pipeline code, DB schema, business logic | Green |
+| meta-integration | Meta Ads API integration | Cyan |
+| feature-manager | Git workflow, feature implementation | Yellow |
+| report-generator | Performance reports from DB | Magenta |
+
+### Agent Flow
+```
+product-manager → sets strategy, targets, guardrails
+       ↓
+data-scientist/experiment-designer → designs experiments
+       ↓
+campaign team → executes campaigns
+       ↓
+data-analyst → measures results, reports back
+       ↓
+product-manager → reviews, adjusts strategy
+```
+
+---
+
+## Quick Reference
+
+### Test Command
+```bash
+.venv/bin/python3 -m pytest tests/ --tb=short
+```
+
+### Status Commands
+```bash
+.venv/bin/python3 -m funnel_optimizer.cli db status
+.venv/bin/python3 -m funnel_optimizer.cli status
+```
+
+### Create Campaign Flow
+```bash
+funnel customer add --name "..." --page-id "..."
+funnel content add-brief --customer-id X --name "..." --project-type "..." --geo "DFW" --budget-cents 5000
+funnel content add --brief-id X --headline "..." --primary-text "..."
+funnel content approve X
+funnel campaign create X
+funnel campaign activate X
+```
+
+---
+
+## Design Documents
+
+- `/docs/product/campaign-optimization-design.md` -- Full experiment framework design
+- `/.claude/skills/database.md` -- Database schema reference
+- `/CLAUDE.md` -- Project overview and architecture
