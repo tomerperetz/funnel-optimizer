@@ -22,16 +22,15 @@ logger = logging.getLogger(__name__)
 class MetaAdsClient:
     """Meta Marketing API operations. Thin HTTP layer — no business logic."""
 
-    def __init__(self, settings: Settings, access_token: str | None = None):
+    def __init__(self, settings: Settings, access_token: str):
         """Initialize Meta API client.
 
         Args:
             settings: App configuration (app_id, app_secret, ad_account_id)
-            access_token: Optional token override. If not provided, uses settings.meta_access_token.
-                         Use this to pass customer-specific page tokens.
+            access_token: Customer-specific page token (from DB).
         """
         self.settings = settings
-        self._access_token = access_token or settings.meta_access_token
+        self._access_token = access_token
         FacebookAdsApi.init(
             app_id=settings.meta_app_id,
             app_secret=settings.meta_app_secret,
@@ -98,7 +97,7 @@ class MetaAdsClient:
         # Ensure targeting has at least geo_locations (required by Meta)
         if not targeting or not targeting.get("geo_locations"):
             targeting = {
-                "geo_locations": {"countries": ["IL"]},  # Default to Israel for testing
+                "geo_locations": {"countries": ["US"]},  # Default to USA
                 "age_min": 18,
                 "age_max": 65,
             }
@@ -111,7 +110,7 @@ class MetaAdsClient:
             "daily_budget": daily_budget_cents,
             "targeting": targeting,
             "status": "PAUSED",
-            "promoted_object": {"page_id": page_id or self.settings.meta_page_id},
+            "promoted_object": {"page_id": page_id},
             "destination_type": "ON_AD",
         }
         result = self.account.create_ad_set(params=params)
@@ -142,8 +141,8 @@ class MetaAdsClient:
             },
             "follow_up_action_url": privacy_policy_url or self.settings.privacy_policy_url,
         }
-        pid = page_id or self.settings.meta_page_id
         from facebook_business.adobjects.page import Page
+        pid = page_id
         page = Page(pid)
         result = page.create_lead_gen_form(params=params)
         logger.info("Created lead form %s", result["id"])
@@ -163,7 +162,7 @@ class MetaAdsClient:
         link: str = "",
     ) -> dict:
         """Create an ad creative for lead gen. Returns dict with id."""
-        pid = page_id or self.settings.meta_page_id
+        pid = page_id
         # Lead gen ads require an external link (not facebook.com)
         external_link = link or self.settings.privacy_policy_url
         link_data = {

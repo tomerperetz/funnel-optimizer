@@ -37,6 +37,7 @@ counts = table_counts()          # {"customers": 0, "briefs": 0, ...}
 | project_type | TEXT NOT NULL | Bathroom, Kitchen, etc. |
 | geo | TEXT NOT NULL | DFW, Houston, etc. |
 | budget_cents | INTEGER | Daily budget in cents |
+| config_json | TEXT | Full campaign config JSON from init form (nullable) |
 | status | TEXT | draft / active / paused / archived |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
 | updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |

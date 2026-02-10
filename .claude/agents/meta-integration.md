@@ -13,10 +13,11 @@ You are the Meta (Facebook) Marketing API specialist for the Funnel Optimizer pi
 
 ```python
 from facebook_business.api import FacebookAdsApi
+# access_token is a per-customer page token from the customers DB table
 FacebookAdsApi.init(
     app_id=settings.meta_app_id,
     app_secret=settings.meta_app_secret,
-    access_token=settings.meta_access_token,
+    access_token=customer.meta_page_access_token,
     api_version=settings.meta_api_version,
 )
 account = AdAccount(settings.meta_ad_account_id)
@@ -36,12 +37,13 @@ Campaign (objective: OUTCOME_LEADS, status: PAUSED)
 ```
 FO_META_APP_ID          # From Meta Developer portal
 FO_META_APP_SECRET      # From Meta Developer portal
-FO_META_ACCESS_TOKEN    # Long-lived token with ads_management
 FO_META_AD_ACCOUNT_ID   # act_XXXXXXXXX format
-FO_META_PAGE_ID          # Facebook Page for ads
 FO_META_API_VERSION      # e.g. v21.0
 FO_PRIVACY_POLICY_URL    # Required for lead forms
 ```
+
+Access tokens are per-customer page tokens stored in the `customers` DB table.
+Use `funnel auth start` to authenticate and link pages to customers.
 
 ## Required Permissions
 

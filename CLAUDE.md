@@ -1,5 +1,14 @@
 # Funnel Optimizer
 
+## Workflow Rules
+
+- **Plan before execute.** For any task involving code changes, present a numbered plan with specific files and changes. Wait for explicit approval before writing code. If I say "just do it" or provide complete code, skip the plan and execute directly.
+- **Feature branches always.** Never commit directly to main. Create a feature branch, implement, PR, merge.
+- **Execute explicit instructions literally.** When I provide code, file contents, or specific instructions to create something, do it exactly as given. Don't explore the codebase or "understand context" first unless asked.
+- **Verify after deploy.** After merging or deploying, check that the deployed version matches what was merged and test the specific feature changed. Don't close the task until verified.
+- **Meta API: read docs first.** Before writing Meta Ads API integration code, read the relevant API docs and list all constraints, required fields, and common errors. Propose an implementation that handles them upfront — don't discover constraints one at a time through serial failures.
+- **Max 2 fix attempts.** On any failure, present a root cause hypothesis before attempting a fix. After 2 failed fix iterations, check in with me before continuing.
+
 ## Product
 
 Standalone SaaS product for lead generation call centers (any service vertical — home renovation, HVAC, roofing, etc.). Automates Meta Ads campaign lifecycle: brief → ad content → campaign creation → lead collection → performance tracking.

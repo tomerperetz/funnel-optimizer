@@ -102,9 +102,7 @@ Copy `.env.example` to `.env` and fill in your Meta API credentials:
 |----------|-------------|
 | `FO_META_APP_ID` | Meta Developer app ID |
 | `FO_META_APP_SECRET` | Meta Developer app secret |
-| `FO_META_ACCESS_TOKEN` | Long-lived access token with `ads_management`, `leads_retrieval` |
 | `FO_META_AD_ACCOUNT_ID` | Ad account ID (`act_` prefix) |
-| `FO_META_PAGE_ID` | Facebook Page ID |
 | `FO_PRIVACY_POLICY_URL` | Required for lead gen forms |
 | `FO_DB_PATH` | Database path (default: `data/pipeline.db`) |
 

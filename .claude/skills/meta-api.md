@@ -73,6 +73,8 @@ Lead count from actions: `action_type == "lead"`
 ## Environment Variables
 
 All prefixed with `FO_`:
-- `FO_META_APP_ID`, `FO_META_APP_SECRET`, `FO_META_ACCESS_TOKEN`
-- `FO_META_AD_ACCOUNT_ID` (act_ prefix), `FO_META_PAGE_ID`
+- `FO_META_APP_ID`, `FO_META_APP_SECRET`
+- `FO_META_AD_ACCOUNT_ID` (act_ prefix)
 - `FO_META_API_VERSION` (default v21.0), `FO_PRIVACY_POLICY_URL`
+
+Access tokens are per-customer page tokens stored in the `customers` DB table (never expire).

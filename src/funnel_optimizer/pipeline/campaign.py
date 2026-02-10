@@ -15,8 +15,8 @@ from funnel_optimizer.pipeline.content import get_brief, get_content, get_custom
 logger = logging.getLogger(__name__)
 
 
-def _get_client(access_token: str | None = None) -> MetaAdsClient:
-    """Get Meta API client, optionally with a specific access token."""
+def _get_client(access_token: str) -> MetaAdsClient:
+    """Get Meta API client with a customer's page token."""
     return MetaAdsClient(get_settings(), access_token=access_token)
 
 

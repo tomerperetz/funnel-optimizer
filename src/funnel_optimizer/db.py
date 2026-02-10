@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS briefs (
     project_type TEXT NOT NULL,
     geo TEXT NOT NULL,
     budget_cents INTEGER NOT NULL DEFAULT 0,
+    config_json TEXT,
     status TEXT NOT NULL DEFAULT 'draft',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -108,6 +109,13 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
     columns = [row[1] for row in cursor.fetchall()]
     if "meta_page_access_token" not in columns:
         conn.execute("ALTER TABLE customers ADD COLUMN meta_page_access_token TEXT")
+        conn.commit()
+
+    # Migration: Add config_json to briefs if missing
+    cursor = conn.execute("PRAGMA table_info(briefs)")
+    brief_columns = [row[1] for row in cursor.fetchall()]
+    if "config_json" not in brief_columns:
+        conn.execute("ALTER TABLE briefs ADD COLUMN config_json TEXT")
         conn.commit()
 
 

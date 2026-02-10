@@ -88,8 +88,8 @@ def add_brief(brief: Brief, conn: sqlite3.Connection | None = None) -> int:
     if conn is None:
         conn = get_connection()
     cur = conn.execute(
-        "INSERT INTO briefs (customer_id, name, project_type, geo, budget_cents, status) VALUES (?, ?, ?, ?, ?, ?)",
-        (brief.customer_id, brief.name, brief.project_type, brief.geo, brief.budget_cents, brief.status),
+        "INSERT INTO briefs (customer_id, name, project_type, geo, budget_cents, config_json, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (brief.customer_id, brief.name, brief.project_type, brief.geo, brief.budget_cents, brief.config_json, brief.status),
     )
     conn.commit()
     row_id = cur.lastrowid

@@ -11,9 +11,7 @@ class Settings(BaseSettings):
     # Meta Ads API
     meta_app_id: str = ""
     meta_app_secret: str = ""
-    meta_access_token: str = ""
     meta_ad_account_id: str = ""  # act_XXXXXXXXX
-    meta_page_id: str = ""
     meta_api_version: str = "v21.0"
 
     # Lead form

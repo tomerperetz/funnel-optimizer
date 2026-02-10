@@ -24,64 +24,21 @@ Step-by-step guide to get your Meta (Facebook) Marketing API credentials for Fun
 2. Find "Marketing API" and click "Set Up"
 3. This enables the ads_management and ads_read permissions
 
-## Step 3: Generate Access Token
-
-### Option A: Short-lived token (for testing)
-
-1. Go to https://developers.facebook.com/tools/explorer/
-2. Select your app from the dropdown
-3. Click "Generate Access Token"
-4. Grant these permissions when prompted:
-   - `ads_management`
-   - `leads_retrieval`
-   - `pages_manage_ads`
-   - `pages_read_engagement`
-5. Copy the token → `FO_META_ACCESS_TOKEN`
-
-**Note:** This token expires in ~1 hour. For production, use a long-lived token.
-
-### Option B: Long-lived token (for production)
-
-1. Get a short-lived token (Option A above)
-2. Exchange it for a long-lived token:
-
-```bash
-curl "https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=YOUR_APP_ID&client_secret=YOUR_APP_SECRET&fb_exchange_token=YOUR_SHORT_TOKEN"
-```
-
-3. The response contains an `access_token` that lasts ~60 days
-4. Copy it → `FO_META_ACCESS_TOKEN`
-
-### Option C: System User token (recommended for production)
-
-1. Go to Business Settings > System Users
-2. Create a new System User with "Admin" role
-3. Assign it to your Ad Account with "Manage campaigns" permission
-4. Generate a token for it — this token doesn't expire
-5. Copy it → `FO_META_ACCESS_TOKEN`
-
-## Step 4: Find Your Ad Account ID
+## Step 3: Find Your Ad Account ID
 
 1. Go to https://business.facebook.com/settings/ad-accounts
 2. Click on your ad account
 3. The Account ID is shown (e.g. `123456789`)
 4. Add the `act_` prefix → `FO_META_AD_ACCOUNT_ID=act_123456789`
 
-## Step 5: Find Your Facebook Page ID
-
-1. Go to your Facebook Page
-2. Click "About" or look in the URL
-3. Or use the API: go to Graph API Explorer, query `me/accounts`, find your page's `id`
-4. Copy it → `FO_META_PAGE_ID`
-
-## Step 6: Privacy Policy URL
+## Step 4: Privacy Policy URL
 
 Lead gen forms require a privacy policy link.
 
 - If you have one: use it → `FO_PRIVACY_POLICY_URL`
 - If not: create a simple one on your website, or use a service like Termly/PrivacyPolicies.com
 
-## Step 7: Configure .env
+## Step 5: Configure .env
 
 ```bash
 cp .env.example .env
@@ -92,15 +49,23 @@ Fill in all values:
 ```
 FO_META_APP_ID=your_app_id
 FO_META_APP_SECRET=your_app_secret
-FO_META_ACCESS_TOKEN=your_access_token
 FO_META_AD_ACCOUNT_ID=act_your_account_id
-FO_META_PAGE_ID=your_page_id
 FO_META_API_VERSION=v21.0
 FO_PRIVACY_POLICY_URL=https://yoursite.com/privacy
 FO_DB_PATH=data/pipeline.db
 ```
 
-## Step 8: Verify
+## Step 6: Authenticate and Link Pages
+
+Run the OAuth flow to get per-customer page tokens (stored in DB, never expire):
+
+```bash
+funnel auth start
+```
+
+This opens a browser for Facebook login, then links your Pages to customers with long-lived page tokens.
+
+## Step 7: Verify
 
 ```bash
 funnel db check-meta

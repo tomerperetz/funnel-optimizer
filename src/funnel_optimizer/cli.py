@@ -51,19 +51,38 @@ def db_init():
 
 
 @db_app.command("check-meta")
-def db_check_meta():
-    """Verify Meta API credentials by reading ad account info."""
+def db_check_meta(
+    customer_id: Optional[int] = typer.Option(None, help="Customer ID to use for token (default: first with token)"),
+):
+    """Verify Meta API credentials using a customer's page token."""
     from funnel_optimizer.clients.meta_ads import MetaAdsClient
     try:
         settings = get_settings()
-        if not settings.meta_access_token:
-            console.print("[red]FO_META_ACCESS_TOKEN not set. Check your .env file.[/red]")
+        customers = list_customers()
+        if not customers:
+            console.print("[red]No customers yet. Run: funnel auth start[/red]")
             raise typer.Exit(1)
-        client = MetaAdsClient(settings)
+
+        if customer_id is not None:
+            customer = get_customer(customer_id)
+            if not customer:
+                console.print(f"[red]Customer #{customer_id} not found[/red]")
+                raise typer.Exit(1)
+        else:
+            customer = next((c for c in customers if c.meta_page_access_token), None)
+
+        if not customer or not customer.meta_page_access_token:
+            console.print("[red]No customer with a page token found. Run: funnel auth start[/red]")
+            raise typer.Exit(1)
+
+        console.print(f"Using token from customer: {customer.name} (#{customer.id})")
+        client = MetaAdsClient(settings, access_token=customer.meta_page_access_token)
         info = client.check_connection()
         console.print("[green]Meta API connection OK[/green]")
         for key, val in info.items():
             console.print(f"  {key}: {val}")
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]Meta API connection failed: {e}[/red]")
         raise typer.Exit(1)
@@ -400,6 +419,42 @@ def content_list_cmd(
 
 
 # --- Campaign (placeholder — filled in Task 5) ---
+
+
+@campaign_app.command("init")
+def campaign_init(
+    config_file: str = typer.Argument(..., help="Path to campaign config JSON file"),
+    customer_id: Optional[int] = typer.Option(None, "--customer-id", help="Use existing customer ID instead of auto-matching"),
+):
+    """Initialize a campaign from config JSON: parse, create DB records, generate approval report."""
+    from pathlib import Path
+    from funnel_optimizer.pipeline.init_campaign import init_campaign
+
+    path = Path(config_file)
+    if not path.exists():
+        console.print(f"[red]File not found: {config_file}[/red]")
+        raise typer.Exit(1)
+
+    try:
+        result = init_campaign(config_file)
+    except json.JSONDecodeError as e:
+        console.print(f"[red]Invalid JSON: {e}[/red]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Init failed: {e}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"\n[green bold]Campaign initialized![/green bold]\n")
+    console.print(f"  Customer:  #{result.customer_id} ({result.config.customer.name})")
+    console.print(f"  Brief:     #{result.brief_id}")
+    console.print(f"  Variants:  {', '.join(f'#{c}' for c in result.content_ids)}")
+    console.print(f"  Report:    {result.report_path}")
+    console.print()
+    console.print("[bold]Next steps:[/bold]")
+    console.print(f"  1. Review report:  [cyan]open {result.report_path}[/cyan]")
+    for cid in result.content_ids:
+        console.print(f"  2. Approve content: [cyan]funnel content approve {cid}[/cyan]")
+    console.print(f"  3. Create campaign: [cyan]funnel campaign create <content_id>[/cyan]")
 
 
 @campaign_app.command("create")
